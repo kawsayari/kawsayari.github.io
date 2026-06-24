@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crear historia Kawsayari</title><meta name="description" content="Generador de tarjetas verticales para compartir Kawsayari en historias."><meta name="author" content="Adrián Fernando Campos Velit">
+<meta name="robots" content="index,follow,max-image-preview:large"><link rel="canonical" href="https://kawsayari.github.io/historias.html">
+<meta property="og:title" content="Crear historia Kawsayari"><meta property="og:description" content="Generador de tarjetas verticales para compartir Kawsayari en historias."><meta property="og:type" content="website"><meta property="og:url" content="https://kawsayari.github.io/historias.html"><meta property="og:image" content="https://kawsayari.github.io/assets/og-kawsayari.png">
+<meta name="twitter:card" content="summary_large_image"><link rel="icon" href="assets/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="assets/icon.png"><link rel="stylesheet" href="assets/style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "Book", "name": "Diccionario Kawsayari: lengua construida peruana de raíz andino-amazónica", "alternateName": ["Kawsayari", "Diccionario Kawsayari"], "description": "Diccionario Kawsayari, lengua construida peruana de raíz andino-amazónica, creada como obra cultural, lingüística y editorial por Adrián Fernando Campos Velit.", "author": {"@type": "Person", "name": "Adrián Fernando Campos Velit"}, "creator": {"@type": "Person", "name": "Adrián Fernando Campos Velit"}, "publisher": {"@type": "Person", "name": "Adrián Fernando Campos Velit"}, "datePublished": "2026-05-27", "inLanguage": "es", "genre": ["Diccionario", "Lengua construida", "Conlang", "Cultura peruana"], "license": "https://creativecommons.org/licenses/by/4.0/", "identifier": "https://doi.org/10.5281/zenodo.20418703", "url": "https://kawsayari.github.io/", "image": "https://kawsayari.github.io/assets/og-kawsayari.png"}</script></head><body><header class="header"><div class="wrap nav"><a class="brand" href="index.html">KAWSAYARI</a><nav class="navlinks" aria-label="Navegación"><a href="index.html">Inicio</a><a href="diccionario.html">Diccionario</a><a href="traductor.html">Traductor</a><a href="historias.html">Historias</a><a href="nombre.html">Nombre</a><a href="frases.html">Frases</a><a href="aprender.html">Aprender</a><a class="btn" href="https://doi.org/10.5281/zenodo.20418703">DOI oficial</a></nav></div></header><main>
+<section class="hero"><div class="wrap"><div class="poster"><div class="kicker">Historias compartibles</div><div class="rule"></div><h1 class="hero-title">Crear<br>Historia</h1><p class="hero-sub">Genera una tarjeta vertical lista para publicar en Instagram, WhatsApp o Facebook</p></div></div></section>
+<section class="section"><div class="wrap grid-2">
+  <div class="card">
+    <h3>Contenido</h3>
+    <label>Tipo de tarjeta</label>
+    <div class="toolbar"><select id="storyMode"><option value="nombre">Mi nombre en Kawsayari</option><option value="frase">Mi frase en Kawsayari</option><option value="palabra">Palabra del día</option><option value="reto">Reto Kawsayari</option></select></div>
+    <label>Texto</label>
+    <textarea id="storyText" placeholder="Escribe tu nombre o frase…">Adrián</textarea>
+    <label>Estilo visual</label>
+    <div class="palette"><button class="swatch active" data-theme="cream">Crema</button><button class="swatch" data-theme="green">Verde</button><button class="swatch" data-theme="red">Rojo</button><button class="swatch" data-theme="black">Editorial</button></div>
+    <div class="toolbar"><button class="btn" id="generateStory">Generar tarjeta</button><button class="btn secondary" id="randomStory">Aleatorio</button></div>
+    <p class="small">Para Instagram: descarga la tarjeta y súbela como historia. El botón también copia el texto sugerido.</p>
+  </div>
+  <div class="card">
+    <h3>Vista previa</h3>
+    <div class="canvas-wrap"><canvas class="story-canvas" id="storyCanvas" width="1080" height="1920"></canvas></div>
+    <div class="share-grid">
+      <button class="btn" id="downloadStory">Descargar PNG</button>
+      <button class="btn secondary" id="nativeShare">Compartir</button>
+      <button class="btn secondary" id="copyStory">Copiar texto</button>
+      <button class="btn secondary" id="whatsappStory">WhatsApp</button>
+      <button class="btn secondary" id="facebookStory">Facebook</button>
+      <button class="btn secondary" id="xStory">X</button>
+    </div>
+  </div>
+</div></section>
+</main><footer class="footer"><div class="wrap"><strong>KAWSAYARI</strong><p>Lengua construida peruana de raíz andino-amazónica. Obra de Adrián Fernando Campos Velit. DOI oficial: <a href="https://doi.org/10.5281/zenodo.20418703">https://doi.org/10.5281/zenodo.20418703</a>.</p></div></footer><script src="assets/app.js"></script></body></html>

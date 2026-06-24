@@ -1,17 +1,284 @@
 
-const DATA_URL='assets/diccionario.json';const MAP_URL='assets/traductor-map.json';let DICT=[];let MAPS=null;function normalizeText(str){return (str||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\wñáéíóúü'\-\s]/gi,' ').replace(/\s+/g,' ').trim()}async function loadData(){if(!DICT.length){DICT=await(await fetch(DATA_URL)).json()}if(!MAPS){MAPS=await(await fetch(MAP_URL)).json()}}function initDictionarySearch(){const input=document.getElementById('searchInput');if(!input)return;const rows=Array.from(document.querySelectorAll('tbody tr'));const count=document.getElementById('resultCount');const cats=Array.from(document.querySelectorAll('.dict-category'));function filterRows(){const q=input.value.trim().toLowerCase();let visible=0;rows.forEach(row=>{const ok=!q||row.dataset.search.includes(q);row.style.display=ok?'':'none';if(ok)visible++});cats.forEach(sec=>{const has=Array.from(sec.querySelectorAll('tbody tr')).some(r=>r.style.display!=='none');sec.style.display=has?'':'none'});if(count)count.textContent=visible}input.addEventListener('input',filterRows)}function escapeHtml(s){return(s||'').toString().replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}function translateText(){const input=document.getElementById('translatorInput'),output=document.getElementById('translatorOutput'),tokenBox=document.getElementById('translatorTokens'),direction=document.getElementById('direction');if(!input||!output||!tokenBox||!direction||!MAPS)return;const tokens=input.value.trim().split(/(\s+|[,.!?;:]+)/).filter(t=>t.length);let translated=[],details=[];const direct={};DICT.forEach(item=>{direct[normalizeText(item['Término original'])]=item['Significado']});tokens.forEach(tok=>{const clean=normalizeText(tok);if(!clean||/^\s+$|^[,.!?;:]+$/.test(tok)){translated.push(tok);return}if(direction.value==='ka-es'){const meaning=direct[clean];if(meaning){translated.push(meaning.split(';')[0].split('.')[0]);details.push({from:tok,to:meaning})}else{translated.push('['+tok+']');details.push({from:tok,to:'sin coincidencia'})}}else{const candidate=MAPS.manual[clean]||MAPS.reverse[clean];if(candidate){translated.push(candidate);details.push({from:tok,to:candidate})}else{translated.push('['+tok+']');details.push({from:tok,to:'sin coincidencia'})}}});output.textContent=translated.join(' ').replace(/\s+([,.!?;:])/g,'$1');tokenBox.innerHTML=details.map(x=>`<span class="token">${escapeHtml(x.from)} <b>→</b> ${escapeHtml(x.to)}</span>`).join('')}async function initTranslator(){const input=document.getElementById('translatorInput');if(!input)return;await loadData();translateText();input.addEventListener('input',translateText);document.getElementById('direction')?.addEventListener('change',translateText);document.getElementById('translateBtn')?.addEventListener('click',translateText);document.getElementById('clearBtn')?.addEventListener('click',()=>{input.value='';translateText()});document.getElementById('copyBtn')?.addEventListener('click',async()=>{const text=document.getElementById('translatorOutput')?.textContent||'';if(text)await navigator.clipboard.writeText(text)});document.querySelectorAll('.sample').forEach(btn=>{btn.addEventListener('click',()=>{input.value=btn.dataset.text;translateText()})})}function seededIndex(max){const d=new Date();return(d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate())%max}async function initLearning(){const word=document.getElementById('flashWord');if(!word)return;await loadData();const category=document.getElementById('flashCategory'),meaning=document.getElementById('flashMeaning'),card=document.getElementById('flashCard'),daily=document.getElementById('dailyWord');let current=null;function setCard(item){current=item;word.textContent=item['Término original'];meaning.textContent=item['Significado'];category.textContent=item['Categoría'];card.classList.remove('show')}function randomCard(){setCard(DICT[Math.floor(Math.random()*DICT.length)])}setCard(DICT[seededIndex(DICT.length)]);if(daily){const item=DICT[seededIndex(DICT.length)];daily.innerHTML=`<h3>${escapeHtml(item['Término original'])}</h3><p>${escapeHtml(item['Significado'])}</p>`}document.getElementById('newCard')?.addEventListener('click',randomCard);document.getElementById('showMeaning')?.addEventListener('click',()=>card.classList.toggle('show'));document.getElementById('copyCard')?.addEventListener('click',async()=>{if(current)await navigator.clipboard.writeText(`${current['Término original']} — ${current['Significado']}`)})}initDictionarySearch();initTranslator();initLearning();
+const DATA_URL='assets/diccionario.json';
+const MAP_URL='assets/traductor-map.json';
+let DICT=[], MAPS=null;
+const SITE='https://kawsayari.github.io/';
 
-function simpleHash(str){let h=0;for(let i=0;i<str.length;i++){h=(h*31+str.charCodeAt(i))>>>0}return h}
-const letterMap={a:'ari',b:'bari',c:'kam',d:'day',e:'eni',f:'fari',g:'gari',h:'hana',i:'inti',j:'jaka',k:'kaw',l:'llaq',m:'mayu',n:'nija',ñ:'ñaantsi',o:'oma',p:'pacha',q:'qori',r:'runa',s:'sumaq',t:'tinkuy',u:'urqu',v:'vira',w:'wayra',x:'sacha',y:'yari',z:'zama'};
-const energies={yaku:['Yaku','agua, movimiento y memoria del río'],allpa:['Allpa','tierra, raíz y territorio'],inti:['Inti','sol, claridad y fuerza'],sonqo:['Sonqo','corazón, ánimo y verdad'],llaqta:['Llaqta','comunidad, barrio y encuentro']};
-function nameInterpretation(name,energy,tone){const clean=(name||'').trim();if(!clean)return null;const letters=normalizeText(clean).replace(/[^a-zñ]/g,'').split('');const picked=letters.filter((x,i)=>i<5&&letterMap[x]).map(x=>letterMap[x]);let stem=picked.slice(0,3).join('-')||'kawsa-yari';const keys=Object.keys(energies);if(energy==='auto')energy=keys[simpleHash(clean)%keys.length];const e=energies[energy]||energies.yaku;let suffix=tone==='fuerte'?'kallpa':tone==='formal'?'simi':tone==='cercano'?'ri':'yari';const kname=(stem+'-'+suffix).replace(/--+/g,'-');const meaning=`${e[1]}; una voz personal marcada por ${tone==='fuerte'?'fuerza':tone==='formal'?'presencia':tone==='cercano'?'cercanía':'creación'}.`;return{original:clean,kname,meaning,energy:e[0]}}
-function buildShareText(title,main,sub,url){return `${title}\n${main}\n${sub}\n${url}`}
-function updateShareLinks(prefix,text,url){const encodedText=encodeURIComponent(text);const encodedUrl=encodeURIComponent(url);const wa=document.getElementById(prefix+'WhatsApp');const fb=document.getElementById(prefix+'Facebook');const x=document.getElementById(prefix+'X');if(wa)wa.href=`https://wa.me/?text=${encodedText}`;if(fb)fb.href=`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;if(x)x.href=`https://twitter.com/intent/tweet?text=${encodedText}`}
-async function nativeShare(text,url){if(navigator.share){try{await navigator.share({text,url});return}catch(e){}}await navigator.clipboard.writeText(text+'\n'+url);alert('Texto copiado. Pégalo en la red que prefieras.')}
-function drawCardToCanvas(card){const W=1080,H=1350;const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');ctx.fillStyle='#f6f0de';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#042d1f';ctx.lineWidth=28;ctx.strokeRect(34,34,W-68,H-68);ctx.fillStyle='#042d1f';ctx.textAlign='center';ctx.textBaseline='top';ctx.font='900 34px Arial';ctx.fillText('KAWSAYARI',W/2,110);ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(280,175);ctx.lineTo(500,175);ctx.moveTo(580,175);ctx.lineTo(800,175);ctx.stroke();ctx.fillStyle='#ac4633';ctx.beginPath();ctx.arc(W/2,175,12,0,Math.PI*2);ctx.fill();const label=card.querySelector('.share-label')?.textContent||'';const main=card.querySelector('.share-main')?.textContent||'';const sub=card.querySelector('.share-sub')?.textContent||'';ctx.fillStyle='#69766e';ctx.font='900 28px Arial';ctx.fillText(label.toUpperCase(),W/2,250);ctx.fillStyle='#042d1f';ctx.font='900 82px Arial';wrapCanvasText(ctx,main.toUpperCase(),W/2,360,900,90);ctx.fillStyle='#042d1f';ctx.font='400 38px Arial';wrapCanvasText(ctx,sub,W/2,800,850,48);ctx.fillStyle='#ac4633';ctx.font='900 36px Arial';ctx.fillText('kawsayari.github.io',W/2,1200);return canvas}
-function wrapCanvasText(ctx,text,x,y,maxWidth,lineHeight){const words=(text||'').split(' ');let line='';for(const w of words){const test=line?line+' '+w:w; if(ctx.measureText(test).width>maxWidth&&line){ctx.fillText(line,x,y);line=w;y+=lineHeight}else{line=test}}if(line)ctx.fillText(line,x,y)}
-function downloadCard(card,filename){const canvas=drawCardToCanvas(card);const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download=filename;a.click()}
-function initNameTool(){const nameInput=document.getElementById('nameInput');if(!nameInput)return;const res=document.getElementById('nameResult'),meaning=document.getElementById('nameMeaning'),energy=document.getElementById('nameEnergy'),tone=document.getElementById('nameTone'),card=document.getElementById('nameCard');let currentText='';function render(){const out=nameInterpretation(nameInput.value,energy.value,tone.value);if(!out){res.textContent='Escribe tu nombre';meaning.textContent='La interpretación aparecerá aquí.';return}res.textContent=out.kname;meaning.textContent=`${out.original}: ${out.meaning}`;currentText=buildShareText('Mi nombre en Kawsayari',out.kname,`${out.original}: ${out.meaning}`,'https://kawsayari.github.io/nombre.html');updateShareLinks('name',currentText,'https://kawsayari.github.io/nombre.html')}document.getElementById('generateName')?.addEventListener('click',render);nameInput.addEventListener('input',render);energy.addEventListener('change',render);tone.addEventListener('change',render);document.getElementById('clearName')?.addEventListener('click',()=>{nameInput.value='';render()});document.getElementById('copyNameText')?.addEventListener('click',async()=>{if(currentText)await navigator.clipboard.writeText(currentText)});document.getElementById('shareNameNative')?.addEventListener('click',()=>nativeShare(currentText||'Mi nombre en Kawsayari','https://kawsayari.github.io/nombre.html'));document.getElementById('downloadNameCard')?.addEventListener('click',()=>downloadCard(card,'mi-nombre-kawsayari.png'));document.getElementById('nameInstagram')?.addEventListener('click',async()=>{downloadCard(card,'instagram-kawsayari.png');if(currentText)await navigator.clipboard.writeText(currentText);alert('Tarjeta descargada y texto copiado. Súbela a Instagram como historia o post.')});}
-function phraseTranslate(text){if(!MAPS)return{text:'',details:[]};const tokens=text.trim().split(/(\s+|[,.!?;:]+)/).filter(t=>t.length);let translated=[],details=[];tokens.forEach(tok=>{const clean=normalizeText(tok);if(!clean||/^\s+$|^[,.!?;:]+$/.test(tok)){translated.push(tok);return}const candidate=MAPS.manual[clean]||MAPS.reverse[clean];if(candidate){translated.push(candidate);details.push({from:tok,to:candidate})}else{translated.push('['+tok+']');details.push({from:tok,to:'por ampliar'})}});return{text:translated.join(' ').replace(/\s+([,.!?;:])/g,'$1'),details}}
-async function initPhraseTool(){const input=document.getElementById('phraseInput');if(!input)return;await loadData();const result=document.getElementById('phraseResult'),original=document.getElementById('phraseOriginal'),tokens=document.getElementById('phraseTokens'),style=document.getElementById('phraseStyle'),card=document.getElementById('phraseCard');let currentText='';function render(){const raw=input.value.trim();if(!raw){result.textContent='Escribe una frase';original.textContent='La frase original aparecerá aquí.';tokens.innerHTML='';return}let out=phraseTranslate(raw);let text=out.text;if(style.value==='poetico')text='Kawsa-yari: '+text;if(style.value==='manifiesto')text=text+' — kawsayari';if(style.value==='breve')text=text.split(' ').slice(0,8).join(' ');result.textContent=text;original.textContent='Original: '+raw;tokens.innerHTML=out.details.map(x=>`<span class="token">${escapeHtml(x.from)} <b>→</b> ${escapeHtml(x.to)}</span>`).join('');currentText=buildShareText('Mi frase en Kawsayari',text,'Original: '+raw,'https://kawsayari.github.io/frases.html');updateShareLinks('phrase',currentText,'https://kawsayari.github.io/frases.html')}document.getElementById('generatePhrase')?.addEventListener('click',render);input.addEventListener('input',render);style.addEventListener('change',render);document.getElementById('clearPhrase')?.addEventListener('click',()=>{input.value='';render()});document.getElementById('copyPhraseText')?.addEventListener('click',async()=>{if(currentText)await navigator.clipboard.writeText(currentText)});document.getElementById('sharePhraseNative')?.addEventListener('click',()=>nativeShare(currentText||'Mi frase en Kawsayari','https://kawsayari.github.io/frases.html'));document.getElementById('downloadPhraseCard')?.addEventListener('click',()=>downloadCard(card,'frase-kawsayari.png'));document.getElementById('phraseInstagram')?.addEventListener('click',async()=>{downloadCard(card,'instagram-frase-kawsayari.png');if(currentText)await navigator.clipboard.writeText(currentText);alert('Tarjeta descargada y texto copiado. Súbela a Instagram como historia o post.')});document.getElementById('savePhraseLocal')?.addEventListener('click',()=>{if(!currentText)return;const saved=JSON.parse(localStorage.getItem('kawsayariWall')||'[]');saved.unshift({text:result.textContent,original:original.textContent,date:new Date().toLocaleDateString()});localStorage.setItem('kawsayariWall',JSON.stringify(saved.slice(0,20)));renderWall()});document.getElementById('clearWall')?.addEventListener('click',()=>{localStorage.removeItem('kawsayariWall');renderWall()});function renderWall(){const wall=document.getElementById('localWall');if(!wall)return;const saved=JSON.parse(localStorage.getItem('kawsayariWall')||'[]');wall.innerHTML=saved.length?saved.map(x=>`<div class="wall-item"><b>${escapeHtml(x.text)}</b><small>${escapeHtml(x.original)} · ${escapeHtml(x.date)}</small></div>`).join(''):'<p class="small">Aún no hay frases guardadas en este navegador.</p>'}render();renderWall()}
-initNameTool();initPhraseTool();
+function normalizeText(str){return (str||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\wñáéíóúü'\-\s]/gi,' ').replace(/\s+/g,' ').trim();}
+function escapeHtml(s){return (s||'').toString().replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+async function loadData(){if(!DICT.length){DICT=await (await fetch(DATA_URL)).json();} if(!MAPS){MAPS=await (await fetch(MAP_URL)).json();}}
+
+function seededIndex(max){const d=new Date(); const seed=d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); return seed%max;}
+function randomItem(){return DICT[Math.floor(Math.random()*DICT.length)];}
+
+function translatePhrase(raw, direction='es-ka'){
+  const direct={}; DICT.forEach(item=>direct[normalizeText(item['Término original'])]=item['Significado']);
+  const tokens=(raw||'').split(/(\s+|[,.!?;:]+)/).filter(t=>t.length);
+  let out=[], details=[];
+  tokens.forEach(tok=>{
+    const clean=normalizeText(tok);
+    if(!clean || /^\s+$|^[,.!?;:]+$/.test(tok)){out.push(tok);return;}
+    if(direction==='ka-es'){
+      const meaning=direct[clean];
+      if(meaning){out.push(meaning.split(';')[0].split('.')[0]); details.push({from:tok,to:meaning});}
+      else{out.push('['+tok+']'); details.push({from:tok,to:'sin coincidencia'});}
+    }else{
+      const candidate=MAPS.manual[clean]||MAPS.reverse[clean];
+      if(candidate){out.push(candidate); details.push({from:tok,to:candidate});}
+      else{out.push('['+tok+']'); details.push({from:tok,to:'sin coincidencia'});}
+    }
+  });
+  return {text:out.join(' ').replace(/\s+([,.!?;:])/g,'$1'), details};
+}
+
+function initDictionarySearch(){
+  const input=document.getElementById('searchInput'); if(!input)return;
+  const rows=Array.from(document.querySelectorAll('tbody tr'));
+  const count=document.getElementById('resultCount');
+  const categories=Array.from(document.querySelectorAll('.dict-category'));
+  function filterRows(){
+    const q=input.value.trim().toLowerCase(); let visible=0;
+    rows.forEach(row=>{const ok=!q||row.dataset.search.includes(q); row.style.display=ok?'':'none'; if(ok)visible++;});
+    categories.forEach(sec=>{const has=Array.from(sec.querySelectorAll('tbody tr')).some(r=>r.style.display!=='none'); sec.style.display=has?'':'none';});
+    if(count)count.textContent=visible;
+  }
+  input.addEventListener('input',filterRows);
+}
+
+async function initTranslator(){
+  const input=document.getElementById('translatorInput'); if(!input)return;
+  await loadData();
+  const output=document.getElementById('translatorOutput'), tokenBox=document.getElementById('translatorTokens'), direction=document.getElementById('direction');
+  function run(){
+    const res=translatePhrase(input.value,direction.value);
+    output.textContent=res.text;
+    tokenBox.innerHTML=res.details.map(x=>`<span class="token">${escapeHtml(x.from)} <b>→</b> ${escapeHtml(x.to)}</span>`).join('');
+  }
+  run();
+  input.addEventListener('input',run); direction.addEventListener('change',run);
+  document.getElementById('translateBtn')?.addEventListener('click',run);
+  document.getElementById('clearBtn')?.addEventListener('click',()=>{input.value='';run();});
+  document.getElementById('copyBtn')?.addEventListener('click',async()=>{const t=output.textContent||''; if(t)await navigator.clipboard.writeText(t);});
+}
+
+function nameToKawsayari(name){
+  const clean=(name||'').trim();
+  if(!clean)return {name:'Kawsayari', title:'Kawsa-yari', meaning:'voz viva con identidad propia'};
+  const n=normalizeText(clean);
+  const roots=['kawsa','sumaq','yaku','sonqo','llaqta','simi','allpa','inti','mayu','ayllu','rimay','pacha'];
+  let score=0; for(const ch of n)score+=ch.charCodeAt(0);
+  const r1=roots[score%roots.length], r2=roots[(score+n.length*3)%roots.length];
+  const suffix=['-yari','-ri','-pacha','-simi','-sonqo'][score%5];
+  const title=(r1+'-'+r2+suffix).replace('--','-');
+  const meanings=[
+    'voz de vida y territorio','corazón que habla con identidad','camino propio de comunidad',
+    'palabra viva de raíz andino-amazónica','energía que une memoria y futuro','nombre con fuerza de casa, barrio y paisaje'
+  ];
+  return {name:clean, title, meaning:meanings[score%meanings.length]};
+}
+
+const themes={
+  cream:{bg:'#f6f0de', fg:'#042d1f', accent:'#ac4633', paper:'#fffaf0'},
+  green:{bg:'#042d1f', fg:'#f6f0de', accent:'#d67a56', paper:'#073b2a'},
+  red:{bg:'#ac4633', fg:'#f6f0de', accent:'#042d1f', paper:'#bf5a43'},
+  black:{bg:'#101511', fg:'#f6f0de', accent:'#ac4633', paper:'#171f19'}
+};
+let currentTheme='cream';
+function setTheme(theme){currentTheme=theme; document.querySelectorAll('.swatch').forEach(b=>b.classList.toggle('active',b.dataset.theme===theme));}
+document.querySelectorAll('.swatch').forEach(b=>b.addEventListener('click',()=>{setTheme(b.dataset.theme); renderAllCards();}));
+
+function wrapLines(ctx,text,maxWidth,maxLines=8){
+  const words=(text||'').split(/\s+/); let lines=[], line='';
+  words.forEach(w=>{const test=line?line+' '+w:w; if(ctx.measureText(test).width<=maxWidth)line=test; else{if(line)lines.push(line); line=w;}});
+  if(line)lines.push(line);
+  if(lines.length>maxLines){lines=lines.slice(0,maxLines); lines[maxLines-1]+='…';}
+  return lines;
+}
+function drawStory(canvas, opts){
+  if(!canvas)return;
+  const t=themes[opts.theme||currentTheme]||themes.cream, ctx=canvas.getContext('2d'), W=canvas.width, H=canvas.height;
+  ctx.fillStyle=t.bg; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle=t.fg; ctx.lineWidth=28; ctx.strokeRect(34,34,W-68,H-68);
+  ctx.fillStyle=t.fg; ctx.textAlign='center';
+  ctx.font='900 46px Arial'; ctx.fillText('KAWSAYARI',W/2,140);
+  ctx.strokeStyle=t.fg; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(250,205);ctx.lineTo(480,205);ctx.moveTo(600,205);ctx.lineTo(830,205);ctx.stroke();
+  ctx.fillStyle=t.accent; ctx.beginPath(); ctx.arc(W/2,205,15,0,Math.PI*2); ctx.fill();
+
+  ctx.fillStyle=t.fg; ctx.font='900 62px Arial'; ctx.fillText(opts.label||'MI HISTORIA',W/2,330);
+
+  // emblem
+  ctx.strokeStyle=t.fg; ctx.lineWidth=10; ctx.beginPath(); ctx.arc(W/2,500,120,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle=t.fg; ctx.beginPath(); ctx.arc(W/2,500,36,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle=t.accent; ctx.lineWidth=8; ctx.beginPath(); ctx.moveTo(W/2-150,500);ctx.lineTo(W/2-60,500);ctx.moveTo(W/2+60,500);ctx.lineTo(W/2+150,500);ctx.stroke();
+
+  ctx.fillStyle=t.fg;
+  ctx.font='900 94px Arial';
+  let mainLines=wrapLines(ctx,opts.main||'Kawsayari',860,4);
+  let y=760;
+  mainLines.forEach(line=>{ctx.fillText(line.toUpperCase(),W/2,y); y+=100;});
+
+  ctx.fillStyle=t.accent; ctx.fillRect(W/2-70,y-24,140,10);
+  y+=80;
+
+  ctx.fillStyle=t.fg; ctx.font='700 44px Arial';
+  let subLines=wrapLines(ctx,opts.sub||'',820,6);
+  subLines.forEach(line=>{ctx.fillText(line,W/2,y); y+=58;});
+
+  ctx.fillStyle=t.fg; ctx.font='700 34px Arial';
+  ctx.fillText('kawsayari.github.io',W/2,H-170);
+  ctx.fillStyle=t.accent; ctx.font='800 30px Arial';
+  ctx.fillText('Diccionario · Traductor · Historias',W/2,H-115);
+}
+function canvasToBlob(canvas){return new Promise(res=>canvas.toBlob(res,'image/png',0.95));}
+async function downloadCanvas(canvas,filename){
+  const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=filename; a.click();
+}
+async function nativeShareCanvas(canvas,text){
+  try{
+    const blob=await canvasToBlob(canvas);
+    const file=new File([blob],'kawsayari-historia.png',{type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({title:'Kawsayari',text,files:[file]});
+    }else{
+      await navigator.clipboard.writeText(text+' '+SITE);
+      alert('Texto copiado. Descarga la imagen y súbela a tu historia.');
+    }
+  }catch(e){await navigator.clipboard.writeText(text+' '+SITE);}
+}
+function shareUrl(platform,text,url=SITE){
+  const encoded=encodeURIComponent(text+' '+url);
+  if(platform==='wa') window.open('https://wa.me/?text='+encoded,'_blank');
+  if(platform==='fb') window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(url),'_blank');
+  if(platform==='x') window.open('https://twitter.com/intent/tweet?text='+encoded,'_blank');
+}
+
+function renderStoryFromInputs(){
+  const canvas=document.getElementById('storyCanvas'); if(!canvas)return;
+  const mode=document.getElementById('storyMode').value;
+  const text=document.getElementById('storyText').value.trim()||'Kawsayari';
+  let opts={theme:currentTheme,label:'MI HISTORIA',main:text,sub:'Lengua construida peruana de raíz andino-amazónica'};
+  if(mode==='nombre'){const n=nameToKawsayari(text); opts={theme:currentTheme,label:'MI NOMBRE EN KAWSAYARI',main:n.title,sub:n.name+' · '+n.meaning};}
+  if(mode==='frase' && MAPS){const tr=translatePhrase(text,'es-ka').text; opts={theme:currentTheme,label:'MI FRASE EN KAWSAYARI',main:tr,sub:text};}
+  if(mode==='palabra' && DICT.length){const item=DICT[seededIndex(DICT.length)]; opts={theme:currentTheme,label:'PALABRA DEL DÍA',main:item['Término original'],sub:item['Significado']};}
+  if(mode==='reto'){opts={theme:currentTheme,label:'RETO KAWSAYARI',main:'ESCRIBE TU PALABRA',sub:'Déjame una palabra y la convierto a Kawsayari'};}
+  drawStory(canvas,opts);
+  return opts;
+}
+async function initStories(){
+  if(!document.getElementById('storyCanvas'))return;
+  await loadData();
+  const render=()=>renderStoryFromInputs();
+  render();
+  ['storyMode','storyText'].forEach(id=>document.getElementById(id)?.addEventListener('input',render));
+  document.getElementById('generateStory')?.addEventListener('click',render);
+  document.getElementById('randomStory')?.addEventListener('click',()=>{const item=randomItem(); document.getElementById('storyMode').value='palabra'; document.getElementById('storyText').value=item['Término original']; render();});
+  document.getElementById('downloadStory')?.addEventListener('click',()=>downloadCanvas(document.getElementById('storyCanvas'),'kawsayari-historia.png'));
+  document.getElementById('nativeShare')?.addEventListener('click',()=>nativeShareCanvas(document.getElementById('storyCanvas'),'Creé mi historia en Kawsayari.'));
+  document.getElementById('copyStory')?.addEventListener('click',async()=>navigator.clipboard.writeText('Creé mi historia en Kawsayari: '+SITE+'historias.html'));
+  document.getElementById('whatsappStory')?.addEventListener('click',()=>shareUrl('wa','Crea tu historia Kawsayari:',SITE+'historias.html'));
+  document.getElementById('facebookStory')?.addEventListener('click',()=>shareUrl('fb','Crea tu historia Kawsayari:',SITE+'historias.html'));
+  document.getElementById('xStory')?.addEventListener('click',()=>shareUrl('x','Crea tu historia Kawsayari:',SITE+'historias.html'));
+}
+
+let currentNameText='';
+function renderName(){
+  const input=document.getElementById('nameInput'); const out=document.getElementById('nameOutput'); const canvas=document.getElementById('nameCanvas');
+  if(!input||!out||!canvas)return;
+  const n=nameToKawsayari(input.value);
+  currentNameText=`${n.name} en Kawsayari: ${n.title} — ${n.meaning}`;
+  out.textContent=currentNameText;
+  drawStory(canvas,{theme:currentTheme,label:'MI NOMBRE EN KAWSAYARI',main:n.title,sub:n.name+' · '+n.meaning});
+}
+async function initName(){
+  if(!document.getElementById('nameCanvas'))return;
+  renderName();
+  document.getElementById('nameInput')?.addEventListener('input',renderName);
+  document.getElementById('generateName')?.addEventListener('click',renderName);
+  document.getElementById('randomName')?.addEventListener('click',()=>{const samples=['Luz','Andrés','Camila','Diego','Valeria','Renato','Adrián']; document.getElementById('nameInput').value=samples[Math.floor(Math.random()*samples.length)]; renderName();});
+  document.getElementById('downloadName')?.addEventListener('click',()=>downloadCanvas(document.getElementById('nameCanvas'),'mi-nombre-kawsayari.png'));
+  document.getElementById('shareName')?.addEventListener('click',()=>nativeShareCanvas(document.getElementById('nameCanvas'),currentNameText));
+  document.getElementById('copyName')?.addEventListener('click',async()=>navigator.clipboard.writeText(currentNameText+' '+SITE+'nombre.html'));
+  document.getElementById('waName')?.addEventListener('click',()=>shareUrl('wa',currentNameText,SITE+'nombre.html'));
+  document.getElementById('fbName')?.addEventListener('click',()=>shareUrl('fb',currentNameText,SITE+'nombre.html'));
+  document.getElementById('xName')?.addEventListener('click',()=>shareUrl('x',currentNameText,SITE+'nombre.html'));
+}
+
+let currentPhraseText='';
+async function renderPhrase(){
+  const input=document.getElementById('phraseInput'); const out=document.getElementById('phraseOutput'); const canvas=document.getElementById('phraseCanvas');
+  if(!input||!out||!canvas)return;
+  await loadData();
+  const original=input.value.trim();
+  const tr=translatePhrase(original,'es-ka').text;
+  currentPhraseText=`${original} → ${tr}`;
+  out.textContent=currentPhraseText;
+  drawStory(canvas,{theme:currentTheme,label:'MI FRASE EN KAWSAYARI',main:tr,sub:original});
+}
+function renderWall(){
+  const wall=document.getElementById('phraseWall'); if(!wall)return;
+  const items=JSON.parse(localStorage.getItem('kawsayariWall')||'[]');
+  wall.innerHTML=items.map(x=>`<div class="card"><strong>${escapeHtml(x.split('→')[0]||'Frase')}</strong><p>${escapeHtml(x)}</p></div>`).join('');
+}
+async function initPhrase(){
+  if(!document.getElementById('phraseCanvas'))return;
+  await renderPhrase(); renderWall();
+  document.getElementById('phraseInput')?.addEventListener('input',renderPhrase);
+  document.getElementById('generatePhrase')?.addEventListener('click',renderPhrase);
+  document.getElementById('savePhrase')?.addEventListener('click',()=>{const arr=JSON.parse(localStorage.getItem('kawsayariWall')||'[]'); arr.unshift(currentPhraseText); localStorage.setItem('kawsayariWall',JSON.stringify(arr.slice(0,12))); renderWall();});
+  document.getElementById('downloadPhrase')?.addEventListener('click',()=>downloadCanvas(document.getElementById('phraseCanvas'),'frase-kawsayari.png'));
+  document.getElementById('sharePhrase')?.addEventListener('click',()=>nativeShareCanvas(document.getElementById('phraseCanvas'),currentPhraseText));
+  document.getElementById('copyPhrase')?.addEventListener('click',async()=>navigator.clipboard.writeText(currentPhraseText+' '+SITE+'frases.html'));
+  document.getElementById('waPhrase')?.addEventListener('click',()=>shareUrl('wa',currentPhraseText,SITE+'frases.html'));
+  document.getElementById('fbPhrase')?.addEventListener('click',()=>shareUrl('fb',currentPhraseText,SITE+'frases.html'));
+  document.getElementById('xPhrase')?.addEventListener('click',()=>shareUrl('x',currentPhraseText,SITE+'frases.html'));
+}
+
+async function initLearning(){
+  const word=document.getElementById('flashWord'); if(!word)return;
+  await loadData();
+  const category=document.getElementById('flashCategory'), meaning=document.getElementById('flashMeaning'), card=document.getElementById('flashCard'), daily=document.getElementById('dailyWord');
+  let current=null;
+  function setCard(item){current=item; word.textContent=item['Término original']; meaning.textContent=item['Significado']; category.textContent=item['Categoría']; card.classList.remove('show');}
+  setCard(DICT[seededIndex(DICT.length)]);
+  if(daily){const item=DICT[seededIndex(DICT.length)]; daily.innerHTML=`<h3>${escapeHtml(item['Término original'])}</h3><p>${escapeHtml(item['Significado'])}</p>`;}
+  document.getElementById('newCard')?.addEventListener('click',()=>setCard(randomItem()));
+  document.getElementById('showMeaning')?.addEventListener('click',()=>card.classList.toggle('show'));
+  document.getElementById('copyCard')?.addEventListener('click',async()=>{if(current)await navigator.clipboard.writeText(`${current['Término original']} — ${current['Significado']}`);});
+}
+
+async function initAssistant(){
+  const log=document.getElementById('assistantLog'); if(!log)return;
+  await loadData();
+  const input=document.getElementById('assistantInput');
+  function add(cls,text){const div=document.createElement('div'); div.className='bubble '+cls; div.innerHTML=text; log.appendChild(div); log.scrollTop=log.scrollHeight;}
+  function answer(q){
+    const nq=normalizeText(q);
+    if(!nq) return 'Escribe una palabra, una frase o una idea para historia.';
+    if(nq.includes('palabra del dia')||nq.includes('palabra del día')){const item=DICT[seededIndex(DICT.length)]; return `<strong>${escapeHtml(item['Término original'])}</strong><br>${escapeHtml(item['Significado'])}`;}
+    if(nq.includes('historia')) return `Prueba esto: <strong>“Mi palabra en Kawsayari es ${escapeHtml(randomItem()['Término original'])}”</strong><br><a href="historias.html">Crear tarjeta para historia</a>`;
+    if(nq.startsWith('traduce')||nq.includes('traducir')){const phrase=q.replace(/traduce|traducir/gi,'').trim(); return `<strong>${escapeHtml(translatePhrase(phrase,'es-ka').text)}</strong><br><a href="traductor.html">Abrir traductor completo</a>`;}
+    const term=DICT.find(x=>normalizeText(x['Término original'])===nq);
+    if(term) return `<strong>${escapeHtml(term['Término original'])}</strong><br>${escapeHtml(term['Significado'])}`;
+    const tr=translatePhrase(q,'es-ka').text;
+    return `Puedo convertirlo como:<br><strong>${escapeHtml(tr)}</strong><br><a href="historias.html">Crear tarjeta compartible</a>`;
+  }
+  add('bot','Soy el Asistente Kawsayari. Puedo traducir palabras, sugerir frases y ayudarte a crear tarjetas para historias.');
+  function send(){const q=input.value.trim(); if(!q)return; add('user',escapeHtml(q)); add('bot',answer(q)); input.value='';}
+  document.getElementById('assistantSend')?.addEventListener('click',send);
+  input?.addEventListener('keydown',e=>{if(e.key==='Enter')send();});
+  document.querySelectorAll('.quickAsk').forEach(b=>b.addEventListener('click',()=>{input.value=b.dataset.q;send();}));
+}
+
+function renderAllCards(){
+  if(document.getElementById('storyCanvas')) renderStoryFromInputs();
+  if(document.getElementById('nameCanvas')) renderName();
+  if(document.getElementById('phraseCanvas')) renderPhrase();
+}
+
+initDictionarySearch();
+initTranslator();
+initStories();
+initName();
+initPhrase();
+initLearning();
+initAssistant();
