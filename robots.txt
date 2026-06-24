@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://kawsayari.github.io/sitemap.xml
